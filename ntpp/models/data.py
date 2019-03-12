@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data.dataset import Dataset
-from ntpp.utils.extractor import read_file, compare_interval_count
+from ntpp.utils import read_file, compare_interval_count
 import numpy as np
 
 class NTPPData(Dataset):

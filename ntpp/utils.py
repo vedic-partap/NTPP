@@ -44,4 +44,12 @@ def compare_interval_count(left, right, host_count, interval_count):
         return Y
 
 # def pcapToCsv(filename):
-    # write function to convert the pcap file to the csv using tshark
+# write function to convert the pcap file to the csv using tshark
+
+
+def ensure_dir(d, verbose=True):
+    if not os.path.exists(d):
+        if verbose:
+            print("Directory {} do not exist; creating...".format(d))
+
+        os.makedirs(d)

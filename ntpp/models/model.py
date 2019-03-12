@@ -10,7 +10,7 @@ class NTPP(nn.Module):
         self.hidden_size = args['h']
         self.num_layers = args['nl']
         self.rnn_step = nn.RNN(args['element_size'], args['h'], args['nl'], batch_first=True)
-        self.linear = nn.Linear(args['h'], output_layer_size) # output_layer_size = number of host
+        self.fc = nn.Linear(args['h'], output_layer_size) # output_layer_size = number of host
 
     def forward(self,x):
 
