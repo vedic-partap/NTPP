@@ -37,6 +37,9 @@ class NTPPData(Dataset):
 
         self.test_y = compare_interval_count(
                 train_interval, args['int_count'], self.host_count, interval_count)
+    
+    def getObservation(self):
+        return self.train_y,self.test_y
 
     def __getitem__(self, idx):
         return self.train_event[idx,:self.time_step],self.train_times[idx,:self.time_step]
