@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import numpy as np
 
 def extractor(path, minl):
     data = pd.read_csv(path + '/testpackets.csv')
@@ -39,7 +40,7 @@ def compare_interval_count(left, right, host_count, interval_count):
         for host in range(host_count - 1):
             a.extend(
                 np.greater(interval_count[host][interval],
-                           interval_count[:, interval])[i + 1:])
+                           interval_count[:, interval])[host + 1:])
         Y.append(a)
         return Y
 
