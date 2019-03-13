@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 class NTPP(nn.Module):
     
-    def __init__(self, args, output_layer_size):
+    def __init__(self, args, output_layer_size=1):
         super(NTPP,self).__init__()
         self.hidden_size = args['h']
         self.num_layers = args['nl']
@@ -22,5 +22,5 @@ class NTPP(nn.Module):
         out, _ = self.lstm(x, (h0, c0))  # out: tensor of shape (batch_size, seq_length, hidden_size)
         
         # Decode the hidden state of the last time step
-        out = self.fc(out[:, -1, :])
+        out = self.fc(out)
         return out
