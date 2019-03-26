@@ -46,6 +46,3 @@ class NTPPData(Dataset):
 
     def __len__(self):
         return self.host_count
-
-
-        
