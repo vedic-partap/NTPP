@@ -44,9 +44,9 @@ def parse_args():
     parser.add_argument('--epochs', type=int, default=32, help='Number of epochs')
     parser.add_argument('--workers', type=int, default=4, help='Number of workers')
     parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate for the optimizer')
-    parser.add_argument('--metric', default='AUC', choices=['AUC','PRECISION','RECALL'], help='Number of workers')
+    parser.add_argument('--metric', default='AUC', choices=['AUC','PRECISION','RECALL'], help='Metric used in discriminator loss')
     parser.add_argument('--is_cuda', default=False, choices=[True, False], help='CUDA or not')
-    parser.add_argument('--optim', default='RMS', choices=['RMS', 'Adam', 'SGD'], help='Optimizer')
+    parser.add_argument('--optim', default='RMS', choices=['RMS', 'Adam', 'SGD'], help='Optimiser')
 
 
     args = parser.parse_args()
