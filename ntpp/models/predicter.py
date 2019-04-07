@@ -8,7 +8,7 @@ import argparse, time
 import torch
 import numpy as np
 import random
-from ntpp.utils import ensure_dir
+from ntpp.utils import ensure_dir, getMinCount
 from ntpp.models.data import NTPPData
 from ntpp.models.model import NTPP
 from ntpp.models.scorer import discriminatorLoss, calculateLoss
@@ -21,28 +21,32 @@ def parse_args():
     parser.add_argument('--int_count', type=int, default=100, help='Number of intervals')
     parser.add_argument('--test_size', type=float, default=0.2, help='Train Test split. e.g. 0.2 means 20% Test 80% Train')
     parser.add_argument('--time_step', type=int, default=8, help='Time Step')
-    parser.add_argument('--batch_size', type=int, default=128, help='Size of the batch')
+    parser.add_argument('--batch_size', type=int, default=8, help='Size of the batch')
     parser.add_argument('--element_size', type=int, default=2, help='Element Size')
     parser.add_argument('--h', type=int, default=128, help='Hiddden layer Size')
     parser.add_argument('--nl', type=int, default=1, help='Number of RNN Steps')
     parser.add_argument('--seed', type=int, default=123456, help='SEED')
     parser.add_argument('--mode', default='train', choices=['train', 'predict'], help='WHat do you want ? train | predict')
-    parser.add_argument('--num_epochs', type=int, default=32, help='Number of epochs')
+    parser.add_argument('--epochs', type=int, default=32, help='Number of epochs')
     parser.add_argument('--workers', type=int, default=4, help='Number of workers')
-    parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate for the optimizer')
+    parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate for the optimizer')
     parser.add_argument('--metric', default='AUC', choices=['AUC','PRECISION','RECALL'], help='Number of workers')
+    parser.add_argument('--is_cuda', default=False, choices=[True, False], help='CUDA or not')
 
 
     args = parser.parse_args()
     return args
 
 def main():
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     torch.set_default_tensor_type('torch.DoubleTensor')
     args = parse_args()
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     random.seed(args.seed)
     args = vars(args)
+    print(args)
+    # Assert check
     print('Running NTPP in {} mode'.format(args['mode']))
 
     if args['mode'] =='train':
@@ -64,11 +68,12 @@ def train(args):
     train_loader = torch.utils.data.DataLoader(network_data,
                             batch_size=args['batch_size'],
                             shuffle=False,
-                            num_workers=args['workers']
-                            # pin_memory=True # CUDA only
+                            num_workers=args['workers'],
+                            pin_memory=args['is_cuda'] # CUDA only
                             )
     optimizer = torch.optim.Adam(model.parameters(), lr=args['learning_rate'])
-    for epoch in range(args['num_epochs']):
+    loss_list,mape_t_list,mape_n_list = [],[],[]
+    for epoch in range(args['epochs']):
         for i, (batch_events,batch_times) in enumerate(train_loader):
             start_time = time.time()
             # batch preprocess
@@ -94,15 +99,14 @@ def train(args):
             discriminator_loss = discriminatorLoss(train_y, predicted, args['metric'])
             loss, mape_t, mape_n = calculateLoss(discriminator_loss, outputs, batch_times_diff_next, time_step)
 
-
             #backward and optimize
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-        if(epoch+1)%10 == 0:
+            # if(i+1)%max(number_host/3,1) == 0:
             print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f} MAPE_t: {:4f} MAPE_n: {:4f} Time : {}'
-                    .format(epoch, args['num_epochs'], i+1, len(train_loader), loss.item(), mape_t.item(), mape_n.item(), time.time()-start_time))
+                    .format(epoch, args['epochs'], i+1, len(train_loader), loss.item(), mape_t.item(), mape_n.item(), time.time()-start_time))
 
         # Dev loss
         # save and load checkpoints

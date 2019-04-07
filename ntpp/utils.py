@@ -58,3 +58,8 @@ def ensure_dir(d, verbose=True):
             print("Directory {} do not exist; creating...".format(d))
 
         os.makedirs(d)
+
+def getMinCount(filename):
+    events = read_file(filename)
+    min_count = min([len(x) for x in events])
+    return min_count

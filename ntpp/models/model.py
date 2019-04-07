@@ -23,6 +23,6 @@ class NTPP(nn.Module):
         # print("out shape: ",out.shape)
         # Decode the hidden state of the last time step
         out = self.fc(out)
-        out = out.squeeze()
+        out = torch.exp(out.squeeze())
         # print("out shape: ", out.shape)
         return out
