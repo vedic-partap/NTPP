@@ -3,6 +3,11 @@ from torch.utils.data.dataset import Dataset
 from ntpp.utils import read_file, compare_interval_count
 import numpy as np
 
+"""
+Class for Data
+
+"""
+
 
 class NTPPData(Dataset):
     def __init__(self, args):

@@ -14,7 +14,20 @@ from ntpp.models.model import NTPP
 from ntpp.models.scorer import discriminatorLoss, calculateLoss
 from ntpp.models.ploter import plot
 
+"""
+Function to pasre the arguments
+
+=============
+Input : 
+
+Ouptut : arguments in ordered form
+=============
+
+"""
+
+
 def parse_args():
+    # Arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--events', type=str, default='data/ntpp/preprocess/events.txt', help='Event File containg the vents for each host.')
     parser.add_argument('--times', type=str, default='data/ntpp/preprocess/times.txt', help='File containing the time of the events for each host.')
@@ -39,14 +52,22 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+
+"""
+Main Function
+
+"""
+
+
 def main():
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     torch.set_default_tensor_type('torch.DoubleTensor')
     args = parse_args()
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     random.seed(args.seed)
     args = vars(args)
+    #  Set the device GPU or CPU
+    device = torch.device('cuda') if torch.cuda.is_available() and args['is_cuda'] else torch.device('cpu')
     print(args)
     # Assert check
     print('Running NTPP in {} mode'.format(args['mode']))
@@ -57,21 +78,39 @@ def main():
     #     evaluate(args)
 
 
+"""
+Function to train the model
+
+=============
+Input : Arguments as dictionary
+
+Ouptut :
+=============
+
+"""
+
+
 def train(args):
+    #  Code for training the model
     ensure_dir(args['save_dir'])
     #model file --
 
     #Loading Data
     network_data = NTPPData(args)
+
+    #  Get the obsevation
     train_y,test_y = network_data.getObservation()
     print('NTPP model...')
     model = NTPP(args, output_layer_size=1)
+
+    #  Data using dataloader
     train_loader = torch.utils.data.DataLoader(network_data,
                             batch_size=args['batch_size'],
                             shuffle=False,
                             num_workers=args['workers'],
                             pin_memory=args['is_cuda'] # CUDA only
                             )
+    #  Depending on the argument decide the optimizer
     if args['optim'] == 'Adam':
         optimizer = torch.optim.Adam(
             model.parameters(), lr=args['learning_rate'])
@@ -83,25 +122,29 @@ def train(args):
             model.parameters(), lr=args['learning_rate'])
     else:
         raise Exception('use Proper optimizer')
+    # Data struture to store teh loss and MAPE values of Dev and train set
     train_loss_list,train_mape_t_list, train_mape_n_list = [],[],[]
     dev_loss_list,dev_mape_t_list, dev_mape_n_list = [],[],[]
+
+    # For each epochs
     for epoch in range(args['epochs']):
+        #  Set the dataloader to Train
         network_data.startTrain()
         for i, (batch_events,batch_times) in enumerate(train_loader):
             start_time = time.time()
             # batch preprocess
             time_step = args['time_step']
+
+            # Some preprocessing
             batch_events_part1 = batch_events[:,:time_step]
             batch_times_diff = batch_times[:, 1:1+time_step] - batch_times[:,:time_step]
             batch_times_diff_next = batch_times[:, 2:2+time_step] - batch_times[:,1:1+time_step]
             batch_times_diff = batch_times_diff[:,:,None] # exapnd dim in axis 2
             batch_events_part1 = batch_events_part1[:,:,None] # expand Dim
-            # batch_times_diff_next = batch_times_diff_next[:,:,None]  # exapnd dims
             batch_input = torch.cat((batch_times_diff,batch_events_part1),2)
-            # print("Input Sphape: ", batch_input.shape)
+
             #forward pass
             outputs = model(batch_input)
-            # print("outputs size: ", outputs.shape)
             last_time_step_layer = outputs.clone()
             last_time_step_layer = (last_time_step_layer.detach().numpy()).transpose()[-1]
             predicted = []
@@ -111,18 +154,20 @@ def train(args):
                     predicted.append(np.greater(last_time_step_layer[host],last_time_step_layer[secon_host]))
             discriminator_loss = discriminatorLoss(train_y, predicted, args['metric'])
             loss, mape_t, mape_n = calculateLoss(discriminator_loss, outputs, batch_times_diff_next, time_step)
+
+            # save the loss for the plotting
             train_loss_list.append(loss)
             train_mape_t_list.append(mape_t)
             train_mape_n_list.append(mape_n)
+
             #backward and optimize
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
-            # if(i+1)%max(number_host/3,1) == 0:
             print('[TRAIN] Epoch [{}/{}], Step [{}/{}], Loss: {:.4f} MAPE_t: {:4f} MAPE_n: {:4f} Time : {}'
                     .format(epoch, args['epochs'], i+1, len(train_loader), loss.item(), mape_t.item(), mape_n.item(), time.time()-start_time))
 
+        # Set the dataoader to dev set
         network_data.startDev()
         with torch.no_grad():
             for i, (batch_events,batch_times) in enumerate(train_loader):
@@ -134,16 +179,13 @@ def train(args):
                 batch_times_diff_next = batch_times[:, 2:2+time_step] - batch_times[:,1:1+time_step]
                 batch_times_diff = batch_times_diff[:,:,None] # exapnd dim in axis 2
                 batch_events_part1 = batch_events_part1[:,:,None] # expand Dim
-                # batch_times_diff_next = batch_times_diff_next[:,:,None]  # exapnd dims
                 batch_input = torch.cat((batch_times_diff,batch_events_part1),2)
-                # print("Input Sphape: ", batch_input.shape)
+
                 #forward pass
                 outputs = model(batch_input)
-                # print("outputs size: ", outputs.shape)
                 last_time_step_layer = outputs.clone()
                 last_time_step_layer = (last_time_step_layer.detach().numpy()).transpose()[-1]
                 predicted = []
-                # print("last_time_step_layer shape: ", len(last_time_step_layer))
                 for host in range(last_time_step_layer.shape[0]):
                     for secon_host in range(host+1,last_time_step_layer.shape[0]):
                         predicted.append(np.greater(last_time_step_layer[host],last_time_step_layer[secon_host]))
@@ -154,25 +196,10 @@ def train(args):
                 dev_mape_n_list.append(mape_n)
                 print('[VALIDATION] Epoch [{}/{}], Step [{}/{}], Loss: {:.4f} MAPE_t: {:4f} MAPE_n: {:4f} Time : {}'
                         .format(epoch, args['epochs'], i+1, len(train_loader), loss.item(), mape_t.item(), mape_n.item(), time.time()-start_time))
+
+    # Plot the loss and MAPE
     plot(args, train_loss_list, train_mape_t_list, train_mape_n_list,
          dev_loss_list, dev_mape_t_list, dev_mape_n_list)
-# Dev loss
-# save and load checkpoints
-
-
-# def evaluate(args):
-#     network_data = NTPPData(args)
-#     number_host = len(network_data)
-#     print('NTPP model...')
-#     model = NTPP(args, output_layer_size=number_host)
-#     test_loader = torch.utils.data.DataLoader(
-#                     network_data,
-#                     batch_size=args['batch_size'],
-#                     shuffle=False,
-#                     num_workers=args['workers']
-#                     # pin_memory=True # CUDA only
-#                     )
-
 
 if __name__ == '__main__':
     main()

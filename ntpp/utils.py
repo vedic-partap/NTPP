@@ -2,6 +2,17 @@ import pandas as pd
 import os
 import numpy as np
 
+"""
+Function to form events.txt and times.txt from .csv input file
+
+=============
+Input : filename and threshold
+
+Ouptut :
+=============
+
+"""
+
 
 def extractor(path, minl=50):
     data = pd.read_csv(path + '/testpackets.csv')
@@ -29,12 +40,32 @@ def extractor(path, minl=50):
             f.write("\n")
 
 
+"""
+Function to read the events.txt and times.txt and load then in Data struture
+
+=============
+Input : filename
+
+Ouptut : list of list
+=============
+
+"""
 def read_file(filename):
     rows = open(filename,'r').readlines()
     data = [[float(ti) for ti in line.strip().split(' ')] for line in rows]
     return data
 
 
+"""
+Function to comapre the event value of host with rest of host
+
+=============
+Input : indexes of times, number of host, data
+
+Ouptut : list of list
+=============
+
+"""
 def compare_interval_count(left, right, host_count, interval_count):
     Y = []
     for interval in range(left, right):
@@ -48,10 +79,16 @@ def compare_interval_count(left, right, host_count, interval_count):
     return Y
 
 
-# def pcapToCsv(filename):
-# write function to convert the pcap file to the csv using tshark
+"""
+Function to ensure of the directory exist or not
 
+=============
+Input : directory
 
+Ouptut :
+=============
+
+"""
 def ensure_dir(d, verbose=True):
     if not os.path.exists(d):
         if verbose:

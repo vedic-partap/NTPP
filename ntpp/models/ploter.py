@@ -1,6 +1,15 @@
 import matplotlib.pyplot as plt
 
+"""
+Function to plot the loss and MAPE
 
+=============
+Input : list for losses and arguments
+
+Ouptut :
+=============
+
+"""
 def plot(args, train_loss_list, train_mape_t_list, train_mape_n_list, dev_loss_list, dev_mape_t_list, dev_mape_n_list):
     f1 = plt.figure(1)
     plt.plot(train_loss_list)

@@ -3,6 +3,17 @@ import torch
 import numpy as np
 import sys
 
+"""
+Function to find the discriminator loss
+
+=============
+Input : training input, predicted value, metric used
+output : loss (depending on metric)
+
+Ouptut :
+=============
+
+"""
 def discriminatorLoss(train_y, predicted, metrics='AUC'):
     res = []
     for i in range(len(train_y)):
@@ -23,6 +34,16 @@ def discriminatorLoss(train_y, predicted, metrics='AUC'):
     return res
 
 
+"""
+Function to calculate the loss
+
+=============
+Input : discriminator loss, output from the model, difference between events, time step
+
+Ouptut : Loss, MAPE_t, MAPE_n
+=============
+
+"""
 def calculateLoss(dLoss, output, batch_times_diff_next, time_step):
     output_delta_mul = torch.mul(output, batch_times_diff_next)
     time_LLs = (torch.log(output) - output_delta_mul)
