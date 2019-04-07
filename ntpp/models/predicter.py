@@ -15,8 +15,8 @@ from ntpp.models.scorer import discriminatorLoss, calculateLoss
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--events', type=str, default='../../data/ntpp/preprocess/events.txt', help='Event File containg the vents for each host.')
-    parser.add_argument('--times', type=str, default='../../data/ntpp/preprocess/times.txt', help='File containing the time of the events for each host.')
+    parser.add_argument('--events', type=str, default='data/ntpp/preprocess/events.txt', help='Event File containg the vents for each host.')
+    parser.add_argument('--times', type=str, default='data/ntpp/preprocess/times.txt', help='File containing the time of the events for each host.')
     parser.add_argument('--save_dir', type=str, default='../../data/ntpp/saved/', help='Root dir for saving models.')
     parser.add_argument('--int_count', type=int, default=100, help='Number of intervals')
     parser.add_argument('--test_size', type=float, default=0.2, help='Train Test split. e.g. 0.2 means 20% Test 80% Train')
@@ -37,13 +37,11 @@ def parse_args():
     return args
 
 def main():
+    torch.set_default_tensor_type('torch.DoubleTensor')
     args = parse_args()
     np.random.seed(args.seed)
-    args = vars(args)
     torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
     random.seed(args.seed)
-
     args = vars(args)
     print('Running NTPP in {} mode'.format(args['mode']))
 
@@ -62,7 +60,7 @@ def train(args):
     train_y,test_y = network_data.getObservation()
     number_host = len(network_data)
     print('NTPP model...')
-    model = NTPP(args, output_layer_size=number_host)
+    model = NTPP(args, output_layer_size=1)
     train_loader = torch.utils.data.DataLoader(network_data,
                             batch_size=args['batch_size'],
                             shuffle=False,
@@ -80,17 +78,19 @@ def train(args):
             batch_times_diff_next = batch_times[:, 2:2+time_step] - batch_times[:,1:1+time_step]
             batch_times_diff = batch_times_diff[:,:,None] # exapnd dim in axis 2
             batch_events_part1 = batch_events_part1[:,:,None] # expand Dim
-            batch_times_diff_next = batch_times_diff_next[:,:,None]  # exapnd dims
+            # batch_times_diff_next = batch_times_diff_next[:,:,None]  # exapnd dims
             batch_input = torch.cat((batch_times_diff,batch_events_part1),2)
-
+            # print("Input Sphape: ", batch_input.shape)
             #forward pass
             outputs = model(batch_input)
-            last_time_step_layer = outputs[-1]
+            # print("outputs size: ", outputs.shape)
+            last_time_step_layer = outputs.clone()
+            last_time_step_layer = (last_time_step_layer.detach().numpy()).transpose()[-1]
             predicted = []
-            for host in range(last_time_step_layer.shape[0]-1):
+            # print("last_time_step_layer shape: ", len(last_time_step_layer))
+            for host in range(last_time_step_layer.shape[0]):
                 for secon_host in range(host+1,last_time_step_layer.shape[0]):
-                    predicted.append(np.greater(last_time_step_layer[host][0],last_time_step_layer[secon_host][0]))
-
+                    predicted.append(np.greater(last_time_step_layer[host],last_time_step_layer[secon_host]))
             discriminator_loss = discriminatorLoss(train_y, predicted, args['metric'])
             loss, mape_t, mape_n = calculateLoss(discriminator_loss, outputs, batch_times_diff_next, time_step)
 
@@ -100,9 +100,9 @@ def train(args):
             loss.backward()
             optimizer.step()
 
-            if(i+1)%100 == 0:
-                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f} MAPE_t: {:4f} MAPE_n: {:4f} Time : {}'
-                        .format(epoch, args['num_epochs'], i+1, len(train_loader), loss.item(), mape_t.item(), mape_n.item(), time.time()-start_time))
+        if(epoch+1)%10 == 0:
+            print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f} MAPE_t: {:4f} MAPE_n: {:4f} Time : {}'
+                    .format(epoch, args['num_epochs'], i+1, len(train_loader), loss.item(), mape_t.item(), mape_n.item(), time.time()-start_time))
 
         # Dev loss
         # save and load checkpoints

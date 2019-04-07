@@ -30,9 +30,8 @@ def extractor(path, minl=50):
 
 
 def read_file(filename):
-    with open(filename, 'r') as f:
-        row = f.readline()
-    data = [[float(ti) for ti in line.rstrip().split(' ')] for line in row]
+    rows = open(filename,'r').readlines()
+    data = [[float(ti) for ti in line.strip().split(' ')] for line in rows]
     return data
 
 
@@ -42,10 +41,11 @@ def compare_interval_count(left, right, host_count, interval_count):
         a = []
         for host in range(host_count - 1):
             a.extend(
-                np.greater(interval_count[host][interval],
+                np.greater(interval_count[host,interval],
                            interval_count[:, interval])[host + 1:])
+        # print("a :", len(a))
         Y.append(a)
-        return Y
+    return Y
 
 
 # def pcapToCsv(filename):

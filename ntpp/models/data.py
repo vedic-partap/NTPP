@@ -19,14 +19,12 @@ class NTPPData(Dataset):
         interval_count = np.zeros((self.host_count, args['int_count']),
                                   dtype=int)
 
-        self.train_event, self.train_times = [
-            [] for i in range(self.host_count)
-        ], [[] for i in range(self.host_count)]
+        self.train_event, self.train_times = [[] for i in range(self.host_count)], [[] for i in range(self.host_count)]
         test_event, test_times = [[] for i in range(self.host_count)
                                   ], [[] for i in range(self.host_count)]
         for i, host in enumerate(times):
             for j, time_stamp in enumerate(host):
-                counter = time_stamp / interval_size
+                counter = int(time_stamp / interval_size)
                 interval_count[i][counter] += 1
                 if counter < train_interval:
                     self.train_times[i].append(times[i][j])
@@ -45,8 +43,7 @@ class NTPPData(Dataset):
         return self.train_y, self.test_y
 
     def __getitem__(self, idx):
-        return self.train_event[idx, :self.time_step], self.train_times[
-            idx, :self.time_step]
+        return np.array(self.train_event[idx][:2*self.time_step]), np.array(self.train_times[idx][:2*self.time_step])
 
     def __len__(self):
         return self.host_count
