@@ -8,15 +8,15 @@ A probabilistic deep machinery that models the traffic characteristics of hosts 
 
 ## File Distribution ##
 
-|- `data/`
-|- `ntpp /`
-	|- `models/`
-		|- `data.py` - Declare the Data Class
-		|- `model.py`  - Declare the model
-		|- `plotter.py` - Function to plot the Loss vs Epoch 
-		|- `predicter.py` - Main function to train and validate the data
-		|- `scorer.py` - Functions to find the discriminator and generative loss
-	|- `utils.py` - Some useful functions 
+	|- data/
+	|- ntpp /
+		|- models/
+			|- data.py - Declare the Data Class
+			|- model.py  - Declare the model
+			|- plotter.py - Function to plot the Loss vs Epoch 
+			|- predicter.py - Main function to train and validate the data
+			|- scorer.py - Functions to find the discriminator and generative loss
+		|- utils.py - Some useful functions 
 
 
 
