@@ -72,7 +72,7 @@ def train(args):
                             num_workers=args['workers'],
                             pin_memory=args['is_cuda'] # CUDA only
                             )
-    if args['optim'] == 'adam':
+    if args['optim'] == 'Adam':
         optimizer = torch.optim.Adam(
             model.parameters(), lr=args['learning_rate'])
     elif args['optim'] == 'SGD':
@@ -82,9 +82,11 @@ def train(args):
         optimizer = torch.optim.RMSprop(
             model.parameters(), lr=args['learning_rate'])
     else:
-        raise Exception('USe Proper optimizer')
-    loss_list,mape_t_list,mape_n_list = [],[],[]
+        raise Exception('use Proper optimizer')
+    train_loss_list,train_mape_t_list, train_mape_n_list = [],[],[]
+    dev_loss_list,dev_mape_t_list, dev_mape_n_list = [],[],[]
     for epoch in range(args['epochs']):
+        network_data.startTrain()
         for i, (batch_events,batch_times) in enumerate(train_loader):
             start_time = time.time()
             # batch preprocess
@@ -109,18 +111,51 @@ def train(args):
                     predicted.append(np.greater(last_time_step_layer[host],last_time_step_layer[secon_host]))
             discriminator_loss = discriminatorLoss(train_y, predicted, args['metric'])
             loss, mape_t, mape_n = calculateLoss(discriminator_loss, outputs, batch_times_diff_next, time_step)
-            loss_list.append(loss)
-            mape_t_list.append(mape_t)
-            mape_n_list.append(mape_n)
+            train_loss_list.append(loss)
+            train_mape_t_list.append(mape_t)
+            train_mape_n_list.append(mape_n)
             #backward and optimize
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             # if(i+1)%max(number_host/3,1) == 0:
-            print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f} MAPE_t: {:4f} MAPE_n: {:4f} Time : {}'
+            print('[TRAIN] Epoch [{}/{}], Step [{}/{}], Loss: {:.4f} MAPE_t: {:4f} MAPE_n: {:4f} Time : {}'
                     .format(epoch, args['epochs'], i+1, len(train_loader), loss.item(), mape_t.item(), mape_n.item(), time.time()-start_time))
-    plot(args,loss_list,mape_t_list,mape_n_list)
+
+        network_data.startDev()
+        with torch.no_grad():
+            for i, (batch_events,batch_times) in enumerate(train_loader):
+                start_time = time.time()
+                # batch preprocess
+                time_step = args['time_step']
+                batch_events_part1 = batch_events[:,:time_step]
+                batch_times_diff = batch_times[:, 1:1+time_step] - batch_times[:,:time_step]
+                batch_times_diff_next = batch_times[:, 2:2+time_step] - batch_times[:,1:1+time_step]
+                batch_times_diff = batch_times_diff[:,:,None] # exapnd dim in axis 2
+                batch_events_part1 = batch_events_part1[:,:,None] # expand Dim
+                # batch_times_diff_next = batch_times_diff_next[:,:,None]  # exapnd dims
+                batch_input = torch.cat((batch_times_diff,batch_events_part1),2)
+                # print("Input Sphape: ", batch_input.shape)
+                #forward pass
+                outputs = model(batch_input)
+                # print("outputs size: ", outputs.shape)
+                last_time_step_layer = outputs.clone()
+                last_time_step_layer = (last_time_step_layer.detach().numpy()).transpose()[-1]
+                predicted = []
+                # print("last_time_step_layer shape: ", len(last_time_step_layer))
+                for host in range(last_time_step_layer.shape[0]):
+                    for secon_host in range(host+1,last_time_step_layer.shape[0]):
+                        predicted.append(np.greater(last_time_step_layer[host],last_time_step_layer[secon_host]))
+                discriminator_loss = discriminatorLoss(train_y, predicted, args['metric'])
+                loss, mape_t, mape_n = calculateLoss(discriminator_loss, outputs, batch_times_diff_next, time_step)
+                dev_loss_list.append(loss)
+                dev_mape_t_list.append(mape_t)
+                dev_mape_n_list.append(mape_n)
+                print('[VALIDATION] Epoch [{}/{}], Step [{}/{}], Loss: {:.4f} MAPE_t: {:4f} MAPE_n: {:4f} Time : {}'
+                        .format(epoch, args['epochs'], i+1, len(train_loader), loss.item(), mape_t.item(), mape_n.item(), time.time()-start_time))
+    plot(args, train_loss_list, train_mape_t_list, train_mape_n_list,
+         dev_loss_list, dev_mape_t_list, dev_mape_n_list)
 # Dev loss
 # save and load checkpoints
 

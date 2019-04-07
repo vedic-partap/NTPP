@@ -7,6 +7,7 @@ import numpy as np
 class NTPPData(Dataset):
     def __init__(self, args):
         self.args = args
+        self.type = 'train'
         event_file = args['events']
         times_file = args['times']
         events = read_file(event_file)
@@ -19,8 +20,10 @@ class NTPPData(Dataset):
         interval_count = np.zeros((self.host_count, args['int_count']),
                                   dtype=int)
 
-        self.train_event, self.train_times = [[] for i in range(self.host_count)], [[] for i in range(self.host_count)]
-        test_event, test_times = [[] for i in range(self.host_count)
+        self.train_event, self.train_times = [
+            [] for i in range(self.host_count)
+        ], [[] for i in range(self.host_count)]
+        self.test_event, self.test_times = [[] for i in range(self.host_count)
                                   ], [[] for i in range(self.host_count)]
         for i, host in enumerate(times):
             for j, time_stamp in enumerate(host):
@@ -30,10 +33,12 @@ class NTPPData(Dataset):
                     self.train_times[i].append(times[i][j])
                     self.train_event[i].append(events[i][j])
                 else:
-                    test_times[i].append(times[i][j])
-                    test_event[i].append(events[i][j])
+                    self.test_times[i].append(times[i][j])
+                    self.test_event[i].append(events[i][j])
         min_count = min([len(x) for x in self.train_event])
-        assert min_count >= args['time_step'] + 2, "Time Step should be less than {0}".format(min_count - 2)
+        assert min_count >= args[
+            'time_step'] + 2, "Time Step should be less than {0}".format(
+                min_count - 2)
         self.train_y = compare_interval_count(0, train_interval,
                                               self.host_count, interval_count)
 
@@ -43,9 +48,19 @@ class NTPPData(Dataset):
     def getObservation(self):
         return self.train_y, self.test_y
 
+    def startDev(self):
+        self.type = 'dev'
+
+    def startTrain(self):
+        self.type = 'train'
+
     def __getitem__(self, idx):
-        x = np.array(self.train_event[idx][:self.time_step+2]), np.array(self.train_times[idx][:2+self.time_step])
-        # print(x[0].shape, x[1].shape)
-        return x
+        if self.type == 'train':
+            return np.array(self.train_event[idx][:self.time_step + 2]), np.array(
+                    self.train_times[idx][:2 + self.time_step])
+        elif self.type =='dev':
+            return np.array(self.test_event[idx][:self.time_step + 2]), np.array(
+                    self.test_times[idx][:2 + self.time_step])
+
     def __len__(self):
         return self.host_count
