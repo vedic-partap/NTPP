@@ -12,12 +12,13 @@ from ntpp.utils import ensure_dir, getMinCount
 from ntpp.models.data import NTPPData
 from ntpp.models.model import NTPP
 from ntpp.models.scorer import discriminatorLoss, calculateLoss
+from ntpp.models.ploter import plot
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--events', type=str, default='data/ntpp/preprocess/events.txt', help='Event File containg the vents for each host.')
     parser.add_argument('--times', type=str, default='data/ntpp/preprocess/times.txt', help='File containing the time of the events for each host.')
-    parser.add_argument('--save_dir', type=str, default='../../data/ntpp/saved/', help='Root dir for saving models.')
+    parser.add_argument('--save_dir', type=str, default='data/ntpp/saved/', help='Root dir for saving models.')
     parser.add_argument('--int_count', type=int, default=100, help='Number of intervals')
     parser.add_argument('--test_size', type=float, default=0.2, help='Train Test split. e.g. 0.2 means 20% Test 80% Train')
     parser.add_argument('--time_step', type=int, default=8, help='Time Step')
@@ -32,6 +33,7 @@ def parse_args():
     parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate for the optimizer')
     parser.add_argument('--metric', default='AUC', choices=['AUC','PRECISION','RECALL'], help='Number of workers')
     parser.add_argument('--is_cuda', default=False, choices=[True, False], help='CUDA or not')
+    parser.add_argument('--optim', default='RMS', choices=['RMS', 'Adam', 'SGD'], help='Optimizer')
 
 
     args = parser.parse_args()
@@ -62,7 +64,6 @@ def train(args):
     #Loading Data
     network_data = NTPPData(args)
     train_y,test_y = network_data.getObservation()
-    number_host = len(network_data)
     print('NTPP model...')
     model = NTPP(args, output_layer_size=1)
     train_loader = torch.utils.data.DataLoader(network_data,
@@ -71,7 +72,17 @@ def train(args):
                             num_workers=args['workers'],
                             pin_memory=args['is_cuda'] # CUDA only
                             )
-    optimizer = torch.optim.Adam(model.parameters(), lr=args['learning_rate'])
+    if args['optim'] == 'adam':
+        optimizer = torch.optim.Adam(
+            model.parameters(), lr=args['learning_rate'])
+    elif args['optim'] == 'SGD':
+        optimizer = torch.optim.SGD(
+            model.parameters(), lr=args['learning_rate'])
+    elif args['optim'] == 'RMS':
+        optimizer = torch.optim.RMSprop(
+            model.parameters(), lr=args['learning_rate'])
+    else:
+        raise Exception('USe Proper optimizer')
     loss_list,mape_t_list,mape_n_list = [],[],[]
     for epoch in range(args['epochs']):
         for i, (batch_events,batch_times) in enumerate(train_loader):
@@ -98,7 +109,9 @@ def train(args):
                     predicted.append(np.greater(last_time_step_layer[host],last_time_step_layer[secon_host]))
             discriminator_loss = discriminatorLoss(train_y, predicted, args['metric'])
             loss, mape_t, mape_n = calculateLoss(discriminator_loss, outputs, batch_times_diff_next, time_step)
-
+            loss_list.append(loss)
+            mape_t_list.append(mape_t)
+            mape_n_list.append(mape_n)
             #backward and optimize
             optimizer.zero_grad()
             loss.backward()
@@ -107,9 +120,9 @@ def train(args):
             # if(i+1)%max(number_host/3,1) == 0:
             print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f} MAPE_t: {:4f} MAPE_n: {:4f} Time : {}'
                     .format(epoch, args['epochs'], i+1, len(train_loader), loss.item(), mape_t.item(), mape_n.item(), time.time()-start_time))
-
-        # Dev loss
-        # save and load checkpoints
+    plot(args,loss_list,mape_t_list,mape_n_list)
+# Dev loss
+# save and load checkpoints
 
 
 # def evaluate(args):
